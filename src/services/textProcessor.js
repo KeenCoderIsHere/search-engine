@@ -10,6 +10,5 @@ export function processText(text){
   const tokens = tokenizer.tokenize(lower)
   const cleanedTokens = removeStopwords(tokens)
   const rootWord = cleanedTokens.map(token => stemmer(token))
-
   return rootWord
 }
