@@ -11,8 +11,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "afinn-165": "^1.0.3",
     "express": "^5.2.1",
-    "natural": "^8.1.1",
     "node-fetch": "^3.3.2",
     "puppeteer": "^24.37.5",
     "stemmer": "^2.0.1",

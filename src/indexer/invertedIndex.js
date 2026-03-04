@@ -14,7 +14,7 @@ export class InvertedIndex{
     for(const token of tokens){
       termFreq[token] = (termFreq[token] || 0) + 1
     }
-    for(const [term, termFrequency] of Object.entres(termFreq)){
+    for(const [term, termFrequency] of Object.entries(termFreq)){
       if(!this.index[term]){
         this.index[term] = {}
       }

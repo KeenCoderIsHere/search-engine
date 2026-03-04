@@ -42,6 +42,7 @@ export class WikipediaCrawler{
           .slice(0, 10)
       )
       await new Promise(resolve => setTimeout(resolve, this.delay))
+      //console.log(content)
       return {
         id: title,
         title: pageTitle,
