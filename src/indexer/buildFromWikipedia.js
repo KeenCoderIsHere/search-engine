@@ -14,10 +14,19 @@ export async function buildIndexFromWikipedia (seedTopics, maxPages = 50) {
       const page = await crawler.crawlPage(topic)
       if(page){
         pagesCrawled++
-        invertedIndex.addDocument(page.id, page.content, {
-          title: page.title,
-          url: page.url
-        })
+        await collection.updateOne(
+          { _id: page.id },
+          {
+            $set: {
+              title: page.title,
+              url: page.url,
+              content: page.content,
+              crawledAt: new Date(),
+              links: page.links
+            }
+          },
+          { upsert: true }
+        )
       }
     }
     catch(error){
@@ -28,6 +37,6 @@ export async function buildIndexFromWikipedia (seedTopics, maxPages = 50) {
     }
   }
   await crawler.stop()
-  console.log(`Indexed ${invertedIndex.docCount} pages.`)
-  return invertedIndex
+  console.log(`Indexed ${count} pages.`)
+  return count
 }

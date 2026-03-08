@@ -1,3 +1,4 @@
+import { InvertedIndex } from "../indexer/invertedIndex.js"
 import { processText } from "./textProcessor.js"
 
 export class Searcher{
