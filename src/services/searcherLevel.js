@@ -1,10 +1,20 @@
+
+import cache from "../cache.js"
 import { processText } from "./textProcessor.js"
 
 export class LevelSearcher{
   constructor(index){
     this.index = index
   }
-  async search(query){
+  async search(query, offset = 0, limit = 20){
+    const cacheKey = `${query}`
+    const cached = cache.get(cacheKey)
+    console.log(`[DEBUG] Cache key: "${cacheKey}"`);
+    if(cached){
+      console.log(`Cache Hit!`)
+      return cached
+    }
+    console.log(`❌ CACHE MISS for "${cacheKey}"`);
     const terms = processText(query)
     if(terms.length === 0) return []
     const docCount = await this.index.getDocCount()
@@ -33,6 +43,9 @@ export class LevelSearcher{
         })
       }
     }
-    return results.sort((a,b) => b.score - a.score) 
+    const sortedResults = results.sort((a,b) => b.score - a.score)
+    cache.set(cacheKey, sortedResults)
+    console.log(cache)
+    return sortedResults
   }
 }
