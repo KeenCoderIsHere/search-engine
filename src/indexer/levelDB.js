@@ -5,6 +5,9 @@ export class LevelDBIndex{
   constructor(dbPath){
     this.db = new Level(dbPath, {valueEncoding: 'json'})
   }
+  async open(){
+    await this.db.open()
+  }
   async addDocument(docId, text, metadata = {}){
     await this.db.put(`doc:${docId}`, {
       ...metadata,
@@ -81,6 +84,6 @@ export class LevelDBIndex{
     return count
   }
   async close(){
-    this.db.close()
+    await this.db.close()
   }
 }

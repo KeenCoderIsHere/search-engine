@@ -1,5 +1,4 @@
-
-import cache from "../cache.js"
+import client from "../redisClient.js"
 import { processText } from "./textProcessor.js"
 
 export class LevelSearcher{
@@ -8,13 +7,17 @@ export class LevelSearcher{
   }
   async search(query, offset = 0, limit = 20){
     const cacheKey = `${query}`
-    const cached = cache.get(cacheKey)
-    console.log(`[DEBUG] Cache key: "${cacheKey}"`);
-    if(cached){
-      console.log(`Cache Hit!`)
-      return cached
+    try{
+      const cached = await client.get(cacheKey)
+      if(cached){
+        console.log(`Redis cache hit for search: ${cacheKey}!`)
+        return JSON.parse(cached)
+      }
     }
-    console.log(`❌ CACHE MISS for "${cacheKey}"`);
+    catch(err){
+      console.log(err)
+    }
+    console.log(`Redis miss for search: ${cacheKey}`)
     const terms = processText(query)
     if(terms.length === 0) return []
     const docCount = await this.index.getDocCount()
@@ -39,13 +42,18 @@ export class LevelSearcher{
       if(metadata){
         results.push({
           id: docId,
-          score: score
+          score: score,
+          ...metadata
         })
       }
     }
     const sortedResults = results.sort((a,b) => b.score - a.score)
-    cache.set(cacheKey, sortedResults)
-    console.log(cache)
+    try{
+      await client.setEx(cacheKey, 300, JSON.stringify(sortedResults))
+    }
+    catch(err){
+      console.log(err)
+    }
     return sortedResults
   }
 }

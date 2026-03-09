@@ -8,7 +8,6 @@ export async function buildLevelIndexFromWikipedia (seedTopics, maxPages = 50) {
   const index = new LevelDBIndex('./scraped-data')
   await index.db.open()
   const topicsToCrawl = seedTopics.slice(0, maxPages)
-  const visited = new Set()
   const crawlPromises = topicsToCrawl.map((topic) => 
     limit(async () => {
       try{
@@ -22,7 +21,7 @@ export async function buildLevelIndexFromWikipedia (seedTopics, maxPages = 50) {
           })
         }
         else{
-          console.log(`Page not found: ${title}`)
+          console.log(`Page not found: ${topic}`)
         }
       }
       catch(err){

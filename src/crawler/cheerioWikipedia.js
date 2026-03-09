@@ -1,9 +1,10 @@
 import axios from "axios"
 import * as cheerio from 'cheerio'
+import client from "../redisClient.js"
 
 export class CheerioWikipediaCrawler{
   constructor(options = {}){
-    this.delay = options.delay || 1000
+    this.delay = options.delay || 700
     this.userAgent = options.userAgent || 'SearchEngineBot'
     this.browser = null
   }
@@ -14,7 +15,7 @@ export class CheerioWikipediaCrawler{
         headers: {
           'User-Agent': this.userAgent,
         },
-        timeout: 1000
+        timeout: 10000
       })
       const $ = cheerio.load(response.data)
       if($('#noarticletext').length > 0){
@@ -47,7 +48,7 @@ export class CheerioWikipediaCrawler{
       return null
     }
     finally{
-
+      client.flushAll()
     }
   }
 }
