@@ -9,20 +9,22 @@ const PORT = process.env.PORT || 5001
 let levelSearcher, index, crawler
 async function init(){
   try{
+    // Create a common database (LevelDB) instance for both crawler and searcher
     index = new LevelDBIndex('./scraped-data')
     await index.db.open()
     console.log(`Index Database Opened.`)
-
+    // Create a new instance of the Level Searcher and pass the index database instance
     levelSearcher = new LevelSearcher(index)
-
+    // Create a new instance of the autonomous crawler
     crawler = new AutonomousCrawler({
       statePath: './crawler-state',
       indexDB: index,
-      maxPages: 100,
-      concurrency: 5,
-      delay: 1000,
+      maxPages: 200,
+      concurrency: 20,
+      delay: 200,
       fresh: false
     })
+    // Initial seed URLs for the crawler
     const seeds = [
   'https://en.wikipedia.org/wiki/JavaScript',
   'https://en.wikipedia.org/wiki/Python_(programming_language)',
@@ -75,8 +77,8 @@ async function init(){
   'https://en.wikipedia.org/wiki/Database',
   'https://en.wikipedia.org/wiki/NoSQL'
     ]
+    // Start the crawler with the seed URLs
     crawler.startSeed(seeds).catch(console.error)
-    console.log(`Autonomous crawler running in background.`)
   }
   catch(err){
     console.error(err)
@@ -84,6 +86,7 @@ async function init(){
   }
 }
 await init()
+// Cross-Origin Resource Sharing 
 app.use(cors())
 app.use(express.json())
 app.get('/', (req, res) => {
@@ -97,6 +100,7 @@ app.get('/search', async (req, res) => {
     })
   }
   try{
+    // Search with the given query
     const results = await levelSearcher.search(q)
     return res.json({
       query: q,
@@ -111,30 +115,35 @@ app.get('/search', async (req, res) => {
     })
   }
 })
-let shuttingDown = false;
-
+// Set shutting down to false initially
+let shuttingDown = false
+// Function for gracefully shutting down the search engine 
 async function shutdown() {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  console.log('Shutting down gracefully...');
+  if (shuttingDown) return
+  shuttingDown = true
+  console.log('Shutting down gracefully...')
 
   try {
+    // Stop the crawler
     if(crawler){
       await crawler.stop()
+      await crawler.shutdown()
     }
+    // Close the index database (LevelDB)
     if (index) await index.close()
+    // Close Redis client 
     if (client && client.isOpen) {
-      await client.quit();
-      console.log('Redis client closed.');
+      await client.quit()
+      console.log('Redis client closed.')
     }
   } catch (err) {
-    console.error('Error during shutdown:', err);
+    console.error('Error during shutdown:', err)
   } finally {
-    process.exit(0);
+    process.exit(0)
   }
 }
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
 app.listen(PORT, () => {
   console.log(`Server listening to port ${PORT}.`)
 })
