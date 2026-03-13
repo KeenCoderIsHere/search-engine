@@ -1,59 +1,83 @@
 import axios from "axios"
 import * as cheerio from 'cheerio'
-import client from "../redisClient.js"
-// Crawler for scraping the content from websites
-export class CheerioWikipediaCrawler{
+import { parseHTML } from "linkedom"
+import { Readability } from "@mozilla/readability"
+import normalizeUrl from "normalize-url"
+
+export class Crawler{
   constructor(options = {}){
-    // Delay to avoid overwhelming the server
     this.delay = options.delay || 700
     this.userAgent = options.userAgent || 'SearchEngineBot'
   }
-  async crawlPage(title){
-    // Scraping from wikipedia documents
-    const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`
+  normalizeUrl(url){
+      return normalizeUrl(url, {
+        stripHash: true,
+        stripWWW: true,
+        removeTrailingSlash: true,
+        removeQueryParameters: [/.*/]
+      })
+  }
+  async crawlPage(url){
     try{
-      // Get the full content by making a request using GET
       const response = await axios.get(url, {
         headers: {
           'User-Agent': this.userAgent,
         },
         timeout: 60000
       })
-      // Cheerio makes it possible to select elements from the retrieved content
-      const $ = cheerio.load(response.data)
-      // If no page is fetched
-      if($('#noarticletext').length > 0){
-        console.log(`Page ${title} does not exist.`)
+      const contentType = response.headers['content-type']
+      if(!contentType || !contentType.includes('text/html')){
+        console.log(`Skipping non-HTML content.`)
         return null
       }
-      // Title
-      const pageTitle = $('h1#firstHeading').text().trim()
-      // Content
-      const content = $('#mw-content-text').text()
+      const $ = cheerio.load(response.data)
+      if($('#noarticletext').length > 0){
+        console.log(`Page ${url} does not exist.`)
+        return null
+      }
+      const { window } = parseHTML(response.data)
+      const reader = new Readability(window.document)
+      const article = reader.parse()
       const links = []
-      // Links in the main content
-      $('#mw-content-text a[href^="/wiki/"]').each((i,el) => {
-        if (i >= 20) return false
-        const href = $(el).attr('href')
-        if(href && !href.includes(':') && !href.includes('#')){
-          links.push(href)
-        }
+      $('a[href]').each((i,el) => {
+          const href = $(el).attr('href')
+          if(!href) return
+          try{
+            const norm = this.normalizeUrl(new URL(href, url).href)
+            if(norm.startsWith('http://') || norm.startsWith('https://')){
+              links.push(norm)
+            }
+          }
+          catch(e){}
       })
-      // Return the page: title, content, URL, links
+      if(!article){
+        console.log(`Readability failed for ${url}.`)
+        $('script, style, nav, header, footer').remove()
+        const pageTitle = $('h1#firstHeading').text().trim()
+        const content = $('#mw-content-text').text().replace(/\s+/g,' ').trim()
+        return {
+          id: url,
+          title: pageTitle,
+          content: content,
+          url: url,
+          links: [...new Set(links)]
+        }
+      }
+      const pageTitle = article.title
+      const content = article.textContent
       return {
-        id: title,
-        title: pageTitle,
+        id: url,
         content: content,
+        title: pageTitle,
         url: url,
         links: [...new Set(links)]
       }
     }
     catch(err){
-      console.error(err)
+      console.error(err.message)
       return null
     }
     finally{
-      // Delete all keys and values cached in the redis database
     }
   }
 }
