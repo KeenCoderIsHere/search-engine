@@ -1,6 +1,6 @@
 import pLimit from "p-limit"
 import normalizeUrl from "normalize-url"
-import { Crawler } from "./crawler/cheerioWikipedia.js"
+import { Crawler } from "./crawler/crawler.js"
 import axios from "axios"
 import robotsParser from "robots-parser"
 

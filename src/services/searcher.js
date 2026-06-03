@@ -2,12 +2,12 @@ import { connectToDatabase } from "../db/mongodb.js"
 import client from "../redisClient.js"
 import { processText } from "./textProcessor.js"
 
-export class LevelSearcher{
+export class QuerySearcher{
   constructor(index){
     this.index = index
   }
-  async search(query){
-    const cacheKey = `${query}`.toLowerCase().trim()
+  async search(query,offset = 0,limit = 20){
+    const cacheKey = `${query}:${offset}:${limit}`.toLowerCase().trim()
     try{
       const cached = await client.get(cacheKey)
       if(cached){
@@ -20,7 +20,7 @@ export class LevelSearcher{
     }
     console.log(`Redis miss for search: ${cacheKey}`)
     const terms = processText(query)
-    if(terms.length === 0) return []
+    if(terms.length === 0) return { results: [], total: 0 }
     const docCount = await this.index.getDocCount()
     const db = await connectToDatabase()
     const res = await db.collection("metadata").findOne({
@@ -73,12 +73,15 @@ export class LevelSearcher{
       }
     }
     const sortedResults = results.sort((a,b) => b.score - a.score)
+    
+    const paginated = sortedResults.slice(offset,offset+limit)
+    const total = sortedResults.length
     try{
-      await client.setEx(cacheKey, 300, JSON.stringify(sortedResults))
+      await client.setEx(cacheKey, 300, JSON.stringify({results: paginated,total}))
     }
     catch(err){
       console.log(err.message)
     }
-    return sortedResults
+    return {results: paginated,total}
   }
 }

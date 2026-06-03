@@ -1,28 +1,16 @@
 import client from "./src/redisClient.js"
-import { LevelSearcher } from "./src/services/searcherLevel.js"
+import { QuerySearcher } from "./src/services/searcher.js"
 import express from "express"
 import cors from 'cors'
-import { MongoDBIndex } from "./src/indexer/levelDB.js"
+import { MongoDBIndex } from "./src/indexer/index.js"
 import { AutonomousCrawler } from "./src/autonomousCrawler.js"
 import { closeConnection, connectToDatabase } from "./src/db/mongodb.js"
 import metafetch from "metafetch"
 const app = express()
 const PORT = process.env.PORT || 5001
-let levelSearcher, index, crawler
+let searcher, index, crawler
 async function init(){
   try{
-    const db = await connectToDatabase()
-    index = new MongoDBIndex(db)
-    await index.ensureIndexes()
-    levelSearcher = new LevelSearcher(index)
-    crawler = new AutonomousCrawler({
-      db: db,
-      index: index,
-      maxPages: 200,
-      concurrency: 30,
-      delay: 200,
-      fresh: true
-    })
     const seeds = [
   // Technology & Programming
   'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide',
@@ -144,7 +132,26 @@ async function init(){
   'https://www.technologyreview.com/topic/climate-change',
   'https://www.technologyreview.com/topic/space',
 ]
-    crawler.startSeed(seeds).catch(console.error)
+    console.log("Step 1")
+
+  const db = await connectToDatabase()
+  console.log("Step 2")
+
+  index = new MongoDBIndex(db)
+  console.log("Step 3")
+
+  await index.ensureIndexes()
+  console.log("Step 4")
+
+  searcher = new QuerySearcher(index)
+  console.log("Step 5")
+
+  crawler = new AutonomousCrawler(...)
+  console.log("Step 6")
+
+  crawler.startSeed(seeds).catch(console.error)
+
+  console.log("Step 7")
   }
   catch(err){
     console.error(err.message)
@@ -186,18 +193,21 @@ app.get('/metadata', async (req, res) => {
   }
 })
 app.get('/search', async (req, res) => {
-  const {q} = req.query
+  const q = req.query.q
+  const offset = parseInt(req.query.offset) || 0
+  const limit = parseInt(req.query.limit) || 20
+
   if(!q || q.trim() === ''){
     return res.status(400).json({
       message: 'Missing parameter "q" (query)!'
     })
   }
   try{
-    const results = await levelSearcher.search(q)
+    const {results, total} = await searcher.search(q,offset,limit)
     return res.json({
       query: q,
-      count: results.length,
-      results: results.slice(0,20)
+      count: total,
+      results
     })
   }
   catch(err){
