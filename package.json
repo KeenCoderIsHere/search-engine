@@ -25,6 +25,7 @@
     "linkedom": "^0.18.12",
     "metafetch": "^5.0.4",
     "mongodb": "^7.1.0",
+    "mongosh": "^2.8.3",
     "node-fetch": "^3.3.2",
     "normalize-url": "^9.0.0",
     "p-limit": "^7.3.0",
