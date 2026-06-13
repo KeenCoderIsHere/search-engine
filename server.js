@@ -4,6 +4,7 @@ import cors from 'cors'
 import { MongoDBIndex } from "./src/indexer/index.js"
 import { AutonomousCrawler } from "./src/autonomousCrawler.js"
 import { closeConnection, connectToDatabase } from "./src/db/mongodb.js"
+import { getRedisClient, closeRedisClient } from "./src/redisClient.js"
 import metafetch from "metafetch"
 
 const app = express()
@@ -133,33 +134,26 @@ async function init(){
 'https://www.technologyreview.com/topic/climate-change',
 'https://www.technologyreview.com/topic/space',
   ]
-  console.log("Step 1")
-
   const db = await connectToDatabase()
-  console.log("Step 2")
-
   index = new MongoDBIndex(db)
-  console.log("Step 3")
-
   await index.ensureIndexes()
-  console.log("Step 4")
-
   searcher = new QuerySearcher(index)
-  console.log("Step 5")
-
   crawler = new AutonomousCrawler({
     db: db, 
     index: index, 
     maxPages: 200, 
     concurrency: 20, 
     delay: 200, 
-    fresh: true
+    fresh: false
   })
-  console.log("Step 6")
-
-  crawler.startSeed(seeds).catch(console.error)
-
-  console.log("Step 7")
+  if (process.env.RUN_CRAWLER === 'true') {
+    console.log('Starting crawler in background...')
+    crawler.startSeed(seeds)
+      .then(() => console.log('Crawler finished'))
+      .catch(err => console.error('Crawler error:', err.message))
+  } else {
+    console.log('Crawler disabled (set RUN_CRAWLER=true to enable).')
+  }
   }
   catch(err){
     console.error(err.message)
@@ -233,15 +227,9 @@ async function shutdown() {
   console.log('Shutting down gracefully...')
 
   try {
-    if(crawler){
-      await crawler.stop()
-    }
+    if(crawler) await crawler.stop()
     await closeRedisClient()
     await closeConnection()
-    if (client && client.isOpen) {
-      await client.quit()
-      console.log('Redis client closed.')
-    }
   } catch (err) {
     console.error('Error during shutdown:', err.message)
   } finally {
