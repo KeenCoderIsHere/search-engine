@@ -150,8 +150,8 @@ async function init(){
   crawler = new AutonomousCrawler({
     db: db, 
     index: index, 
-    maxPages: 200, 
-    concurrency: 30, 
+    maxPages: 10000, 
+    concurrency: 100, 
     delay: 200, 
     fresh: true
   })

@@ -15,6 +15,8 @@ export class AutonomousCrawler{
     this.activeTasks = []
     this.shouldStop = false
     this.lastRequest = new Map()
+    this.visitedCache = new Set()
+    this.queuedCache = new Set()
     this.crawlPromise = null
     this.robotsCache = new Map()
     this.fresh = options.fresh || false
@@ -48,7 +50,17 @@ export class AutonomousCrawler{
     this.pagesCrawled++
     console.log(`${this.pagesCrawled}/${this.maxPages} ${page.title}`)
     if(this.pagesCrawled < this.maxPages && !this.shouldStop){
-      await Promise.all(page.links.map(link => this.enqueue(link)))
+      const newLinks = []
+      for (const link of page.links) {
+          const normalized = this.normalizeUrl(link)
+          if (!this.visitedCache.has(normalized) && !this.queuedCache.has(normalized)) {
+              this.queuedCache.add(normalized)
+              newLinks.push({ _id: normalized, url: normalized, addedAt: new Date() })
+          }
+      }
+      if (newLinks.length > 0) {
+          this.db.collection("crawler_queue").insertMany(newLinks, { ordered: false }).catch(() => {})
+      }
     }
     await this.markVisited(url, 200)
   }
@@ -71,14 +83,8 @@ export class AutonomousCrawler{
   }
   async enqueue(url){
     const normalizedUrl = this.normalizeUrl(url)
-    const visited = await this.db.collection("crawler_visited").findOne({
-      _id: normalizedUrl
-    })
-    if(visited) return
-    const queued = await this.db.collection("crawler_queue").findOne({
-      _id: normalizedUrl
-    })
-    if(queued) return
+    if(this.visitedCache.has(normalizedUrl) || this.queuedCache.has(normalizedUrl)) return
+    this.queuedCache.add(normalizedUrl)
     await this.db.collection("crawler_queue").insertOne({
       _id: normalizedUrl,
       url: normalizedUrl,
@@ -94,6 +100,8 @@ export class AutonomousCrawler{
   }
   async markVisited(url, status = 200){
     const normalizedUrl = this.normalizeUrl(url)
+    this.queuedCache.delete(normalizedUrl)
+    this.visitedCache.add(normalizedUrl)
     await this.db.collection("crawler_queue").findOneAndDelete({
       _id: normalizedUrl
     })
