@@ -59,6 +59,24 @@ export class MongoDBIndex{
       return {}
     }
   }
+  async getBatchPostings(terms) {
+    try {
+        const docs = await this.db.collection('postings')
+            .find({ term: { $in: terms } })
+            .toArray()
+        const termMap = new Map()
+        for (const doc of docs) {
+            if (!termMap.has(doc.term)) {
+                termMap.set(doc.term, {})
+            }
+            termMap.get(doc.term)[doc.docId] = doc.tf
+        }
+        return termMap
+    } catch (err) {
+        console.error('Batch postings error:', err.message)
+        return new Map()
+    }
+}
   async getDocCount(){
     try{
       return this.db.collection("documents").countDocuments()

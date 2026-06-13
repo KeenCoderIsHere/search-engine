@@ -36,17 +36,15 @@ export class QuerySearcher {
     const postingDocs = new Map() // term -> { df, docTFs: Map<docId, tf> }
     const allDocIds = new Set()
 
-    for (const term of terms) {
-      const postings = await this.index.getPostings(term)
-      if (!postings || typeof postings !== 'object') continue
-      const df = Object.keys(postings).length
-      if (df === 0) continue
+    const termPostingsMap = await this.index.getBatchPostings(terms)
 
-      const docTFs = new Map(Object.entries(postings))
-      postingDocs.set(term, { df, docTFs })
-      for (const docId of docTFs.keys()) allDocIds.add(docId)
+    for (const [term, postingsObj] of termPostingsMap) {
+        const df = Object.keys(postingsObj).length
+        if (df === 0) continue
+        const docTFs = new Map(Object.entries(postingsObj))
+        postingDocs.set(term, { df, docTFs })
+        for (const docId of docTFs.keys()) allDocIds.add(docId)
     }
-
     if (allDocIds.size === 0) return { results: [], total: 0 }
 
     const docArray = await db.collection("documents")
